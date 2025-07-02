@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import sys
 import traceback
 from datetime import datetime
 from copy import deepcopy
@@ -19,6 +20,7 @@ from data.mods.apply_mods import apply_mods
 
 logger = logging.getLogger(__name__)
 
+log_file = 'battles_info'
 
 def check_dictionaries_are_unmodified(original_pokedex, original_move_json):
     # The bot should not modify the data dictionaries
@@ -86,6 +88,8 @@ async def showdown():
 
         winner = await pokemon_battle(ps_websocket_client, ShowdownConfig.pokemon_mode)
         if winner == ShowdownConfig.username:
+            import subprocess
+            subprocess.run(['python', 'plswritefile.py', "{}".format(winner)])
             wins += 1
         else:
             losses += 1

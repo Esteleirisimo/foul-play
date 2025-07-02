@@ -2,6 +2,7 @@ import importlib
 import json
 import asyncio
 import concurrent.futures
+import time
 from copy import deepcopy
 import logging
 
@@ -78,6 +79,7 @@ async def initialize_battle_with_tag(ps_websocket_client: PSWebsocketClient, set
 
     battle_tag, opponent_name = await get_battle_tag_and_opponent(ps_websocket_client)
     while True:
+        time.sleep(1)
         msg = await ps_websocket_client.receive_message()
         split_msg = msg.split('|')
         if split_msg[1].strip() == 'request' and split_msg[2].strip():
@@ -148,6 +150,20 @@ async def start_standard_battle(ps_websocket_client: PSWebsocketClient, pokemon_
             if split_line[1] == constants.TEAM_PREVIEW_POKE and split_line[2].strip() == opponent_id:
                 opponent_pokemon.append(split_line[3])
 
+        # f = open('battles_info.txt', 'a')
+        # f.write("bruh")
+        # f.write(f"{battle.user.name} vs ({opponent_pokemon.pop().title()}) {battle.opponent.name}")
+
+        # client = MongoClient('mongodb://localhost:27017/')
+        # db = client['pokemon']
+        # collection = db['battles']
+        #
+        # doc = {
+        #     'match': f"{battle.user.name} vs ({opponent_pokemon.pop().title()}) {battle.opponent.name}",
+        #     'winner': f"{winner}"
+        # }
+        # collection.insert_one(doc)
+
         battle.initialize_team_preview(user_json, opponent_pokemon, pokemon_battle_type)
         battle.during_team_preview()
 
@@ -161,7 +177,7 @@ async def start_standard_battle(ps_websocket_client: PSWebsocketClient, pokemon_
 
         await handle_team_preview(battle, ps_websocket_client)
 
-    return battle
+    return battle, f"{battle.user.name} vs ({opponent_pokemon.pop().title()}) {battle.opponent.name}"
 
 
 async def start_battle(ps_websocket_client, pokemon_battle_type):
@@ -169,16 +185,16 @@ async def start_battle(ps_websocket_client, pokemon_battle_type):
         Scoring.POKEMON_ALIVE_STATIC = 30  # random battle benefits from a lower static score for an alive pkmn
         battle = await start_random_battle(ps_websocket_client, pokemon_battle_type)
     else:
-        battle = await start_standard_battle(ps_websocket_client, pokemon_battle_type)
+        battle, match = await start_standard_battle(ps_websocket_client, pokemon_battle_type)
 
     await ps_websocket_client.send_message(battle.battle_tag, ["hf"])
     await ps_websocket_client.send_message(battle.battle_tag, ['/timer on'])
 
-    return battle
+    return battle, match
 
 
 async def pokemon_battle(ps_websocket_client, pokemon_battle_type):
-    battle = await start_battle(ps_websocket_client, pokemon_battle_type)
+    battle, match = await start_battle(ps_websocket_client, pokemon_battle_type)
     while True:
         msg = await ps_websocket_client.receive_message()
         if battle_is_finished(battle.battle_tag, msg):
@@ -186,6 +202,22 @@ async def pokemon_battle(ps_websocket_client, pokemon_battle_type):
                 winner = msg.split(constants.WIN_STRING)[-1].split('\n')[0].strip()
             else:
                 winner = None
+            # Write to file
+            # print(f"Writing to file: {winner}")
+            # f = open('battles_info.txt', 'a')
+            # f.write("bruh")
+            # f.write(f"{winner}\n")
+
+            # client = MongoClient('mongodb://localhost:27017/')
+            # db = client['pokemon']
+            # collection = db['battles']
+            #
+            # doc = {
+            #     'match': match,
+            #     'winner': f"{winner}"
+            # }
+            # collection.insert_one(doc)
+
             logger.debug("Winner: {}".format(winner))
             await ps_websocket_client.send_message(battle.battle_tag, ["gg"])
             await ps_websocket_client.leave_battle(battle.battle_tag, save_replay=ShowdownConfig.save_replay)
